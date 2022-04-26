@@ -58,9 +58,7 @@ class RssFeed():
             self.graph = json.loads(f.read())
 
         # Create lookup table to quickly get node information
-        node_lut = {}
-        for node in self.graph['nodes']:
-            node_lut[node['id']] = node
+        node_lut = {node['id']: node for node in self.graph['nodes']}
         self.node_lut = node_lut
 
         # define excluded folders
@@ -72,9 +70,13 @@ class RssFeed():
         self.excluded_folders = excluded_folders
 
         # define excluded files
-        excluded_files = []
-        for ef in pb.gc('toggles','features','rss','items','selector','exclude_files'):
-            excluded_files.append(self.html_folder.joinpath(ef).resolve())
+        excluded_files = [
+            self.html_folder.joinpath(ef).resolve()
+            for ef in pb.gc(
+                'toggles', 'features', 'rss', 'items', 'selector', 'exclude_files'
+            )
+        ]
+
         self.excluded_files = excluded_files
 
         # define include_subfolders
@@ -138,17 +140,11 @@ class RssFeed():
             if path.is_dir():
                 continue
 
-            # don't handle anything in excluded folders
-            # don't handle excluded files
-            excluded = False
-            for ef in self.excluded_folders:
-                if path.is_relative_to(ef):
-                    excluded = True
-                    break
-            for ef in self.excluded_files:
-                if path == ef:
-                    excluded = True
-                    break
+            excluded = next(
+                (True for ef in self.excluded_files if path == ef),
+                any(path.is_relative_to(ef) for ef in self.excluded_folders),
+            )
+
             if excluded:
                 continue
 
@@ -184,21 +180,14 @@ class RssFeed():
 
             # include: match note on key
             selector = self.item_match_keys_selector
-            if not selector:
-                pass
-            if selector[0] == 'yaml':
-                selector_key = selector[1]
-                if len(selector) > 2:
-                    selector_prefixes = selector[2]
-                else:
-                    selector_prefixes = None
-
-                rv = yaml_selector(metadata, selector_key, selector_prefixes)
-                if not rv:
-                    continue
-            else:
+            if selector[0] != 'yaml':
                 raise Exception(f"RSS Feed: get_items(): Selector function {selector[0]} not implemented for note selection.")
 
+            selector_key = selector[1]
+            selector_prefixes = selector[2] if len(selector) > 2 else None
+            rv = yaml_selector(metadata, selector_key, selector_prefixes)
+            if not rv:
+                continue
             # compile description
             description = self.select_value(metadata, soup, path, self.description_selectors)
             if not description:
@@ -208,7 +197,7 @@ class RssFeed():
             title = self.select_value(metadata, soup, path, self.title_selectors)
             if not title:
                 print(f"RSS Feed: warning: no title found for note {path}")
-            
+
             # get publish date
             publish_date = self.select_value(metadata, soup, path, self.publish_date_selectors)
             if not publish_date:
@@ -216,15 +205,20 @@ class RssFeed():
 
             if pb.gc('toggles','features','rss','items','publish_date','iso_formatted'):
                 publish_date = datetime.fromisoformat(publish_date)
+            elif fs := pb.gc(
+                'toggles',
+                'features',
+                'rss',
+                'items',
+                'publish_date',
+                'format_string',
+            ):
+                try:
+                    publish_date = datetime.strptime(publish_date, fs)
+                except ValueError:
+                    raise Exception(f"Don't know how to parse date string. Found date '{publish_date}' does not match format_string '{fs}'.")
             else:
-                fs = pb.gc('toggles','features','rss','items','publish_date','format_string')
-                if fs:
-                    try:
-                        publish_date = datetime.strptime(publish_date, fs)
-                    except ValueError:
-                        raise Exception(f"Don't know how to parse date string. Found date '{publish_date}' does not match format_string '{fs}'.")
-                else:
-                    raise Exception("Don't know how to parse date string. Iso_formatted is false and format_string is empty.")
+                raise Exception("Don't know how to parse date string. Iso_formatted is false and format_string is empty.")
 
             publish_date_str = ConvertDateToRssFormat(publish_date)
 
@@ -264,13 +258,9 @@ class RssFeed():
             elif selector_function == 'first-header':
                 value = selector_first_header(soup, header_level=selector[1])
 
-            elif selector[0] == 'yaml' or selector[0] == 'yaml_strip':
+            elif selector[0] in ['yaml', 'yaml_strip']:
                 selector_key = selector[1]
-                if len(selector) > 2:
-                    selector_prefixes = selector[2]
-                else:
-                    selector_prefixes = None
-
+                selector_prefixes = selector[2] if len(selector) > 2 else None
                 if selector[0] == 'yaml':
                     value = yaml_selector(metadata, selector_key, selector_prefixes)
                 else:
@@ -285,7 +275,7 @@ class RssFeed():
             # return if value is not empty
             if value:
                 return value
-        
+
         # return empty string if nothing found
         return ''
 
@@ -325,32 +315,27 @@ def yaml_selector(metadata, key, list_item_prefixes=None, strip_prefix=False):
     # assume list
     if not isinstance(value, list):
         return ''
-    
+
     # return first matched item
     for item in value:
         for prefix in list_item_prefixes:
             if item.startswith(prefix):
-                if strip_prefix:
-                    return item.replace(prefix, '', 1)
-                else:
-                    return item
-    
+                return item.replace(prefix, '', 1) if strip_prefix else item
     # no items matched
     return ''
 
 def selector_first_paragraphs(soup, number_of_paragraphs, delimiter):
-    value = ''
     paragraphs = soup.body.find_all('p')
     len_paragraphs = len(paragraphs)
-    for i in range(number_of_paragraphs):
-        if i < len_paragraphs:
-            value += paragraphs[i].text + str(delimiter)
-    
-    return value
+    return ''.join(
+        paragraphs[i].text + str(delimiter)
+        for i in range(number_of_paragraphs)
+        if i < len_paragraphs
+    )
 
 def selector_first_header(soup, header_level):
     value = ''
-    header = soup.body.find('h'+str(header_level))
+    header = soup.body.find(f'h{str(header_level)}')
     if header is None:
         return ''
     return header.text
@@ -364,11 +349,10 @@ def selector_path(path, args):
             # Get the name of n-th level parent folder
             if arg[0] == 'parent':
                 el = path
-                for i in range(arg[1]):
+                for _ in range(arg[1]):
                     el = el.parent
                 value += el.name
-            
-            # Get filename minus suffix
+
             elif arg[0] == 'stem':
                 value += path.stem
             else:

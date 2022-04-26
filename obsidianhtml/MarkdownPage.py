@@ -53,11 +53,14 @@ class MarkdownPage:
         """(Temporarily) Remove codeblocks/-lines so that they are not altered in all the conversions. Placeholders are inserted."""
         self.codeblocks = re.findall("^```([\s\S]*?)```[\s]*?$", self.page, re.MULTILINE)
         for i, match in enumerate(self.codeblocks):
-            self.page = self.page.replace("```"+match+"```", f'%%%codeblock-placeholder-{i}%%%')
-            
+            self.page = self.page.replace(
+                f"```{match}```", f'%%%codeblock-placeholder-{i}%%%'
+            )
+
+
         self.codelines = re.findall("`(.*?)`", self.page)
         for i, match in enumerate(self.codelines):
-            self.page = self.page.replace("`"+match+"`", f'%%%codeline-placeholder-{i}%%%')
+            self.page = self.page.replace(f"`{match}`", f'%%%codeline-placeholder-{i}%%%')
            
     def RestoreCodeSections(self):
         """Undo the action of StripCodeSections."""

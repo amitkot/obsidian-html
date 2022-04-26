@@ -61,13 +61,13 @@ def StringifyDateRecurse(tree):
         for key, value in tree.items():
             if isinstance(value, date):
                 tree[key] = value.isoformat()
-            elif isinstance(value, list) or isinstance(value, dict):
+            elif isinstance(value, (list, dict)):
                 tree[key] = StringifyDateRecurse(value)
     if isinstance(tree, list):
         for key, value in enumerate(tree):
             if isinstance(value, date):
                 tree[key] = value.isoformat()
-            elif isinstance(value, list) or isinstance(value, dict):
+            elif isinstance(value, (list, dict)):
                 tree[key] = StringifyDateRecurse(value)
 
     return tree

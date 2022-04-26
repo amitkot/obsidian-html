@@ -112,7 +112,7 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
     if md.dst_path == paths['html_output_folder'].joinpath('index.md') and md.src_path != paths['md_entrypoint']:
         md.dst_path = md.dst_path.parent.joinpath('index__2.md')
         md.rel_dst_path = md.dst_path.relative_to(md.dst_folder_path)
-    
+
 
     # Graph view integrations
     # ------------------------------------------------------------------
@@ -123,7 +123,7 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
 
     # add all metadata to node, so we can access it later when we need to, once compilation of html is complete
     node['metadata'] = md.metadata.copy()
-    
+
     # Use filename as node id, unless 'graph_name' is set in the yaml frontmatter
     node['id'] = md.rel_dst_path.as_posix().split('/')[-1].replace('.md', '')
     if 'graph_name' in md.metadata.keys():
@@ -139,7 +139,7 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
         link['source'] = backlinkNode['id']
         link['target'] = node['id']
         pb.network_tree.AddLink(link)
-    
+
     backlinkNode = node
 
     # Skip further processing if processing has happened already for this file
@@ -173,7 +173,11 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
             try:
                 shutil.copyfile(link.src_path, paths['html_output_folder'].joinpath(link.rel_src_path))
             except FileNotFoundError:
-                print('\t'*(log_level+1), 'File ' + str(link.src_path) + ' not located, so not copied.')
+                print(
+                    '\t' * (log_level + 1),
+                    f'File {str(link.src_path)} not located, so not copied.',
+                )
+
             continue
 
         # [13] Link to a custom 404 page when linked to a not-created note
@@ -190,9 +194,9 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
             if link.query != '':
                 query_part = link.query_delimiter + link.query 
             new_link = f']({pb.gc("html_url_prefix")}/{link.rel_src_path_posix[:-3]}.html{query_part})'
-            
+
         # Update link
-        safe_link = re.escape(']('+l+')')
+        safe_link = re.escape(f']({l})')
         md.page = re.sub(safe_link, new_link, md.page)
 
     # [4] Handle local image links (copy them over to output)
@@ -246,7 +250,7 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
         # anchor links
         if l[0] == '#':
             new_str = f"<a href=\"{l}\" class=\"anchor-link\""
-        
+
         # external links
         else:
             # add in target="_blank" (or not)
@@ -255,7 +259,7 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
                 external_blank_html = 'target=\"_blank\" '
 
             new_str = f"<a href=\"{l}\" {external_blank_html}class=\"external-link\""
-        
+
         # convert link
         safe_str = f"<a href=\"{l}\""
         html_body = html_body.replace(safe_str, new_str)
@@ -283,8 +287,8 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
 
     # Save file
     # ------------------------------------------------------------------
-    md.dst_path.parent.mkdir(parents=True, exist_ok=True)   
-    html_dst_path_posix = md.dst_path.as_posix()[:-3] + '.html' 
+    md.dst_path.parent.mkdir(parents=True, exist_ok=True)
+    html_dst_path_posix = f'{md.dst_path.as_posix()[:-3]}.html' 
 
     md.AddToTagtree(pb.tagtree, md.dst_path.relative_to(paths['html_output_folder']).as_posix()[:-3] + '.html')
 
@@ -302,7 +306,7 @@ def ConvertMarkdownPageToHtmlPage(page_path_str, pb, backlinkNode=None, log_leve
     for l in md.links:
         # these are of type rel_path_posix
         link_path = l
-        
+
         # Skip non-existent links
         if link_path not in files.keys():
             continue

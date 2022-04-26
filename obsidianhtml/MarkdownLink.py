@@ -99,12 +99,11 @@ class MarkdownLink:
         # path/file.md --> page_path + url
         if self.url[0] == '/':
             self.src_path = self.root_path.joinpath(self.url[1:]).resolve()
+        elif self.relative_path_md:
+            self.src_path = self.page_path.parent.joinpath(self.url).resolve()
         else:
-            if self.relative_path_md:
-                self.src_path = self.page_path.parent.joinpath(self.url).resolve()
-            else:
-                self.src_path = self.root_path.joinpath(self.url).resolve()
-            
+            self.src_path = self.root_path.joinpath(self.url).resolve()
+
         # Determine if relative to root
         if self.src_path.is_relative_to(self.root_path):
             self.inRoot = True
