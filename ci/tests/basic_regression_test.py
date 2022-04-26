@@ -21,9 +21,8 @@ import unittest
 # Helper functions
 # --------------------------------
 def get_paths():
-    paths = {}
     this_file_path              = os.path.realpath(__file__)                                        # (..)/obsidian-html/ci/tests/__filename__
-    paths['ci_tests']           = Path(this_file_path).parent                                       # (..)/obsidian-html/ci/tests/
+    paths = {'ci_tests': Path(this_file_path).parent}
     paths['root']               = paths['ci_tests'].parent.parent                                   # (..)/obsidian-html/
     paths['sys_default_config'] = paths['root'].joinpath('obsidianhtml/src/defaults_config.yml')    # (..)/obsidian-html/obsidianhtml/src/defaults_config.yml
     paths['ci_configs']         = paths['root'].joinpath('ci/configs')                              # (..)/obsidian-html/ci/configs
@@ -32,7 +31,7 @@ def get_paths():
     paths['temp_cfg']           = paths['temp_dir'].joinpath('config.yml')                          # (..)/obsidian-html/tmp/config.yml
     paths['html_output_folder'] = paths['temp_dir'].joinpath('html')                                # (..)/obsidian-html/tmp/html
     paths['config_yaml']        = paths['ci_configs'].joinpath('default_settings.yml')              # (..)/obsidian-html/ci/configs/default_settings.yml
-     
+
     return paths
 
 def convert_vault():
@@ -70,10 +69,7 @@ def html_get(path, output_dict=False, convert=False):
     else:
         soup = BeautifulSoup(response.text, 'html.parser', features="html5lib")
 
-    if output_dict:
-        return {'soup': soup, 'url': url}
-    else:
-        return soup
+    return {'soup': soup, 'url': url} if output_dict else soup
 
 def get_default_config():
     paths = get_paths()
@@ -90,10 +86,7 @@ def get_default_config():
     with open(paths['config_yaml'], 'r', encoding="utf-8") as f:
         default_config = yaml.safe_load(f.read())
 
-    # Merge the two
-    config = MergeDictRecurse(sys_config, default_config)
-
-    return config
+    return MergeDictRecurse(sys_config, default_config)
 
 def customize_default_config(items, write_to_tmp_config=True):
     # Example Input
@@ -274,7 +267,7 @@ class TestDefaultMode(ModeTemplate):
         self.scribe('rss should exist and the values should be filled in correctly.')
 
         rss = GetRssSoup('obs.html/rss/feed.xml')
-        
+
         # test setting title, description, pubdate with frontmatter yaml
         item1 = [x for x in rss['articles'] if x['link'].strip() == "https://localhost:8888/rss/rss_index.html"][0]
         self.assertEqual(item1['title'], 'test_value_title')
@@ -286,7 +279,13 @@ class TestDefaultMode(ModeTemplate):
         self.assertEqual(item2['title'], 'rss_h1_test')
 
         # test folder exclusion
-        self.assertTrue(len([x for x in rss['articles'] if x['link'].strip() == "https://localhost:8888/rss_exclude1.html"]) == 0)
+        self.assertTrue(
+            not [
+                x
+                for x in rss['articles']
+                if x['link'].strip() == "https://localhost:8888/rss_exclude1.html"
+            ]
+        )
 
     def test_D_images(self):
         self.scribe('image link should point to correct location and the image should be downloadable.')
@@ -453,17 +452,17 @@ if __name__ == '__main__':
     # Args
     run_setup = False
     run_cleanup = False
-    for i, v in enumerate(sys.argv):
-        if v == '-r':
-            run_setup = True
+    for v in sys.argv:
         if v == '-c':
             run_cleanup = True
-        if v == 'v':
+        elif v == '-r':
+            run_setup = True
+        elif v == 'v':
             verbose = True
 
     # get paths
     paths = get_paths()
-    
+
     # Create temp dir
     os.chdir(paths['root'])
     paths['temp_dir'].mkdir(exist_ok=True)

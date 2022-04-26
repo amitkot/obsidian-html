@@ -56,23 +56,22 @@ def ConvertMarkdownToHeaderTree(code):
                 # no string after '[#]* ' makes an invalid header, discard
                 if len(line) < i:
                     break
-                # Header found
                 else:
                     new_element = _newElement()
                     new_element['level'] = level
-                    new_element['title'] = line[i+1:len(line)]
+                    new_element['title'] = line[i+1:]
                     md_title = ConvertTitleToMarkdownId(new_element['title'])
-                    
-                    if md_title in header_dict.keys():
+
+                    if md_title in header_dict:
                         i = 1
-                        while (md_title + '_' + str(i)) in header_dict.keys():
-                            i += 1 
-                        md_title = md_title + '_' + str(i)
+                        while f'{md_title}_{i}' in header_dict:
+                            i += 1
+                        md_title = f'{md_title}_' + str(i)
                     new_element['md-title'] = md_title
 
                     # Move up in the tree until both levels are equal, or current_element['level'] is higher than level
                     while level < current_element['level']:
-                        current_element = current_element['parent']                
+                        current_element = current_element['parent']
                     if level > current_element['level']:
                         # add to children of current_element
                         current_element['content'].append(new_element)

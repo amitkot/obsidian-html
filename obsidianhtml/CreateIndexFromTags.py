@@ -54,10 +54,7 @@ def CreateIndexFromTags(pb):
 
     # Find notes with given tags
     _files = {}
-    index_dict = {}
-    for t in include_tags:
-        index_dict[t] = []
-
+    index_dict = {t: [] for t in include_tags}
     for k in files.keys():
         # Determine src file path
         page_path_str = files[k]['fullpath']
@@ -86,7 +83,7 @@ def CreateIndexFromTags(pb):
                     if pb.gc('toggles','verbose_printout'):
                         print(f'\t\tMatched note {k} on tag {t}')
                     matched = True
-            
+
             if matched == False:
                 continue
 
@@ -98,37 +95,36 @@ def CreateIndexFromTags(pb):
             # determine sorting value
             sort_value   = None
             if method not in ('none', 'creation_time', 'modified_time'):
-                if method == 'key_value':
-                    # key can be multiple levels deep, like this: level1:level2
-                    # get the value of the key
-                    key_found = True
-                    value = metadata
-                    for key in key_path.split(':'):
-                        if key not in value.keys():
-                            key_found = False
-                            break
-                        value = value[key]
+                if method != 'key_value':
+                    raise Exception(f'Sort method {method} not implemented. Check spelling.')
+
+                # key can be multiple levels deep, like this: level1:level2
+                # get the value of the key
+                key_found = True
+                value = metadata
+                for key in key_path.split(':'):
+                    if key not in value.keys():
+                        key_found = False
+                        break
+                    value = value[key]
                     # only continue if the key is found in the current note, otherwise the 
                     # default sort value of None is kept
-                    if key_found:
-                        # for a list find all items that start with the value prefix
-                        # then remove the value_prefix, and check if we have 1 item left
-                        if isinstance(value, list):
-                            items = [x.replace(value_prefix, '', 1) for x in value if x.startswith(value_prefix)]
-                            if len(items) == 1:
-                                sort_value = items[0]
-                                # done
-                        if isinstance(value, str):
-                            sort_value = value.replace(value_prefix, '', 1)
-                        if isinstance(value, bool):
-                            sort_value = str(int(value))
-                        if isinstance(value, int) or isinstance(value, float):
-                            sort_value = str(value)
-                        if isinstance(value, datetime.datetime):
-                            sort_value = value.isoformat()
-                else:
-                    raise Exception(f'Sort method {method} not implemented. Check spelling.')
-            
+                if key_found:
+                    # for a list find all items that start with the value prefix
+                    # then remove the value_prefix, and check if we have 1 item left
+                    if isinstance(value, list):
+                        items = [x.replace(value_prefix, '', 1) for x in value if x.startswith(value_prefix)]
+                        if len(items) == 1:
+                            sort_value = items[0]
+                            # done
+                    if isinstance(value, str):
+                        sort_value = value.replace(value_prefix, '', 1)
+                    if isinstance(value, bool):
+                        sort_value = str(int(value))
+                    if isinstance(value, (int, float)):
+                        sort_value = str(value)
+                    if isinstance(value, datetime.datetime):
+                        sort_value = value.isoformat()
             # Get sort_value from files dict
             if method in ('creation_time', 'modified_time'):
                 # created time is not really accessible under Linux, we might add a case for OSX
@@ -158,18 +154,15 @@ def CreateIndexFromTags(pb):
                     )
 
     if len(_files.keys()) == 0:
-        raise Exception(f"No notes found with the given tags.")
+        raise Exception("No notes found with the given tags.")
 
     if pb.gc('toggles','verbose_printout'):
         print(f'\tBuilding index.md')
 
     index_md_content = f'# {pb.gc("site_name")}\n'
-    for t in index_dict.keys():
+    for t, notes in index_dict.items():
         # Add header
         index_md_content += f'## {t}\n'
-
-        # shorthand
-        notes = index_dict[t]
 
         # fill in none types
         # - get max value
@@ -191,7 +184,7 @@ def CreateIndexFromTags(pb):
             input_val = ''
             if sort_reverse:
                 input_val = max_val
-        
+
         # - fill in none types
         for n in notes:
             if n['sort_value'] is None:
@@ -218,14 +211,14 @@ def CreateIndexFromTags(pb):
 
         if pb.gc('toggles','verbose_printout'):
             print(f'\tAdding graph links between index.md and the matched notes')
-        
+
         node = pb.network_tree.NewNode()
         node['id'] = 'index'
         node['url'] = f'{pb.gc("html_url_prefix")}/index.html'
         pb.network_tree.AddNode(node)
         bln = node
-        for t in index_dict.keys():
-            for n in index_dict[t]:
+        for t, value_ in index_dict.items():
+            for n in value_:
                 node = pb.network_tree.NewNode()
                 node['id'] = n['graph_name']
                 node['url'] = f'{pb.gc("html_url_prefix")}/{n["md_rel_path_str"][:-3]}.html'

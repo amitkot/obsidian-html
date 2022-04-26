@@ -35,13 +35,10 @@ def GetObsidianFilePath(link, file_tree):
     # then filename=note, header=chapter
     parts = link.split('|')[0].split('/')[-1].split('#')
     filename = parts[0]
-    header = ''
-    if len(parts) > 1:
-        header = parts[1]
-
+    header = parts[1] if len(parts) > 1 else ''
     if filename[-3:] != '.md':
         filename += '.md'
-        
+
     # Return tuple
     if filename not in file_tree.keys():
         return (filename, False, '')
@@ -215,13 +212,9 @@ def MergeDictRecurse(base_dict, update_dict, path=''):
         if isinstance(base_dict[k], dict) and isinstance(v, dict):
             base_dict[k] = MergeDictRecurse(base_dict[k], update_dict[k], path=key_path)
             continue
-        
-        # other cases -> copy over
-        if isinstance(update_dict[k], list):
-            base_dict[k] = v.copy()
-        else:
-            base_dict[k] = v
 
+        # other cases -> copy over
+        base_dict[k] = v.copy() if isinstance(update_dict[k], list) else v
     return base_dict.copy()
 
 def CheckConfigRecurse(config, path='', match_str='<REQUIRED_INPUT>'):
